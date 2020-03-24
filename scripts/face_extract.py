@@ -12,6 +12,8 @@ from PIL import Image
 import tensorflow as tf
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from credential import token
+from slacker import Slacker
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -261,6 +263,12 @@ def extract_faces(args, SAVE_PATH, start, end):
                 fake_path = os.path.join(args.PATH, 'unzipped_videos', f'{chunk}', fake)
                 file_name = fake_path.split('/')[-1].split('.')[0]
                 detect_video(args, fake_path, save_path, file_name, preprocess, is_fake=True, frames_boxes_dict=frames_boxes_dict)
+
+        # slack notice
+        slack = Slacker(token)
+        slack.chat.post_message('#deepfake-train', '{}  time {}'.format(
+                                                    chunk, datetime.now().replace(second=0, microsecond=0)
+                                ))
 
 
 
