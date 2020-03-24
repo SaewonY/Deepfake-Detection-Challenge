@@ -38,7 +38,8 @@ class Head(torch.nn.Module):
     
     self.f = nn.Flatten()
     self.l = nn.Linear(in_f, 512)
-    self.d = nn.Dropout(0.5)
+    self.d = nn.Dropout(0.2)
+    self.d1 = nn.Dropout(0.3)
     self.o = nn.Linear(512, out_f)
     self.b1 = nn.BatchNorm1d(in_f)
     self.b2 = nn.BatchNorm1d(512)
@@ -51,8 +52,9 @@ class Head(torch.nn.Module):
 
     x = self.l(x)
     x = self.r(x)
-    x = self.b2(x)
     x = self.d(x)
+    x = self.b2(x)
+    x = self.d1(x)
 
     out = self.o(x)
     return out
@@ -175,18 +177,21 @@ def build_model(args, device):
     if args.model == 'resnet50':
         model = BaseCNN('resnet50', pretrained='imagenet', dropout_ratio=args.dropout, GeM_pool=True)
         freeze_until(model, "base_model.layer3.0.conv1.weight")
-        print("fine-tuning")
+        print("fine-tuning resnet50")
 
     elif args.model == 'resnext':
         model = MyResNeXt(checkpoint=weight_path)
         freeze_until(model, "layer4.0.conv1.weight")
-        print("fine-tuning")
+        print("fine-tuning resnext")
 
     elif args.model == 'xception':
+        assert args.batch_size < 32
         model = get_model("xception", pretrained=True)
         model = nn.Sequential(*list(model.children())[:-1])
         model[0].final_block.pool = nn.Sequential(nn.AdaptiveAvgPool2d((1,1)))
         model = FCN(model, 2048)
+        freeze_until(model, 'base.0.stage4.unit1.identity_conv.conv.weight')
+        print("fine-tuning xception")
     else:
         NotImplementedError
 
