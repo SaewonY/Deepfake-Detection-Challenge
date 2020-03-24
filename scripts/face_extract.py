@@ -55,7 +55,7 @@ def get_center_crop_coords(height, width, crop_size):
     return x1, y1, x2, y2
 
 
-def get_mobilenet_face(args, image):
+def get_mobilenet_face(args, image, preprocess=False):
     global boxes,scores, num_detections
     (im_height, im_width) = image.shape[:-1]
     imgs = np.array([image])
@@ -69,53 +69,23 @@ def get_mobilenet_face(args, image):
     (left, right, top, bottom) = (xmin * im_width, xmax * im_width,
                                 ymin * im_height, ymax * im_height)
     left, right, top, bottom = int(left), int(right), int(top), int(bottom)
-
-    # train이면 랜덤하게 마진을 줘서 가져온다.
-    if args.mode == 'train':
-        
-        width = right - left
-        height = bottom - top
-        
-        if width > height:
-            h_margin = int(random.uniform(30, 45))
-            w_margin = int(random.uniform(20, 30))
-
-        else:
-            if height / width > 1.4:
-                h_margin = int(random.uniform(15, 25))
-                w_margin = int(random.uniform(30, 40))
-            else:
-                h_margin = int(random.uniform(30, 40))
-                w_margin = int(random.uniform(20, 25))
-
-        left = left - w_margin 
-        right = right + w_margin
-        top = top - h_margin
-        bottom = bottom + h_margin
-
-        left = 0 if left < 0 else left
-        right = im_width if right > im_width else right
-        top = 0 if top < 0 else top 
-        bottom = im_height if bottom > im_height else bottom
-
-    # valid면 고정된 마진 적용
-    elif args.mode == 'valid':
-        
-        h_margin = 30
-        w_margin = 30
-
-        left = left - w_margin 
-        right = right + w_margin
-        top = top - h_margin
-        bottom = bottom + h_margin
-
-        left = 0 if left < 0 else left
-        right = im_width if right > im_width else right
-        top = 0 if top < 0 else top 
-        bottom = im_height if bottom > im_height else bottom
     
-    else:
-        NotImplementedError
+    width = right - left
+    height = bottom - top
+
+    w_margin = width//5
+    h_margin = height//8
+
+    left = left - w_margin 
+    right = right + w_margin
+    top = top - h_margin
+    bottom = bottom + h_margin
+
+    left = 0 if left < 0 else left
+    right = im_width if right > im_width else right
+    top = 0 if top < 0 else top 
+    bottom = im_height if bottom > im_height else bottom
+
         
     return left, right, top, bottom
 
@@ -124,17 +94,17 @@ def crop_image(frame,bbox):
     left, right, top, bottom=bbox
     return frame[top:bottom,left:right]
 
-def get_img(args, frame, frame_idx, save_path, file_name, frames_boxes_dict=None, is_fake=False):
+def get_img(args, frame, frame_idx, save_path, file_name, frames_boxes_dict=None, is_fake=False, preprocess=False):
     
     if is_fake:
         box = frames_boxes_dict[frame_idx]
         cropped_face = crop_image(frame, box)
-        resized_face = cv2.resize(cropped_face, (args.resize, args.resize))
-        center_cropped = center_crop(resized_face, args.crop_size)
+        # resized_face = cv2.resize(cropped_face, (args.resize, args.resize))
+        # center_cropped = center_crop(resized_face, args.crop_size)
         
-#         resized = isotropically_resize_image(np.array(cropped_face), 256)
-#         squared = make_square_image(resized)
-#         center_cropped = center_crop(squared, 224)
+        resized = isotropically_resize_image(np.array(cropped_face), 256)
+        squared = make_square_image(resized)
+        center_cropped = center_crop(squared, 224)
 
         file_save_name = f'{file_name}_{frame_idx}.jpg'
         cv2.imwrite(os.path.join(save_path, file_save_name), (cv2.cvtColor(center_cropped, cv2.COLOR_RGB2BGR)))
@@ -142,14 +112,15 @@ def get_img(args, frame, frame_idx, save_path, file_name, frames_boxes_dict=None
         
     else:
         
-        box = get_mobilenet_face(args, frame)
+        box = get_mobilenet_face(args, frame, preprocess)
         cropped_face = crop_image(frame, box)
-        resized_face = cv2.resize(cropped_face, (args.resize, args.resize))
-        center_cropped = center_crop(resized_face, args.crop_size)
+
+        # resized_face = cv2.resize(cropped_face, (args.resize, args.resize))
+        # center_cropped = center_crop(resized_face, args.crop_size)
         
-#         resized = isotropically_resize_image(np.array(cropped_face), 256)
-#         squared = make_square_image(resized)
-#         center_cropped = center_crop(squared, 224)
+        resized = isotropically_resize_image(np.array(cropped_face), 256)
+        squared = make_square_image(resized)
+        center_cropped = center_crop(squared, 224)
     
         file_save_name = f'{file_name}_{frame_idx}.jpg'
         cv2.imwrite(os.path.join(save_path, file_save_name), (cv2.cvtColor(center_cropped, cv2.COLOR_RGB2BGR)))
@@ -213,12 +184,14 @@ def detect_video(args, video, save_path, file_name, preprocess=False, is_fake=Fa
                 else:
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                    if preprocess and args.mode == 'valid':
-                        width, height = frame.shape[:-1]
-                        frame = cv2.resize(frame, (width//4, height//4) , fx=0, fy=0, interpolation = cv2.INTER_CUBIC)
-                    
                     try:
-                        box = get_img(args, frame, frame_idx, save_path, file_name, is_fake=False)
+                        if preprocess and args.mode == 'valid':
+                            width, height = frame.shape[:-1]
+                            frame = cv2.resize(frame, (width//4, height//4) , fx=0, fy=0, interpolation = cv2.INTER_CUBIC)
+                            box = get_img(args, frame, frame_idx, save_path, file_name, is_fake=False, preprocess=True)
+                    
+                        else:
+                            box = get_img(args, frame, frame_idx, save_path, file_name, is_fake=False)
                     except Exception as err:
                         print(err)
                         continue
@@ -243,9 +216,6 @@ def extract_faces(args, SAVE_PATH, start, end):
     os.makedirs(SAVE_PATH, exist_ok=True)            
 
     for i, (chunk, meta) in tqdm(enumerate(zip(VIDEOS, META)), total=len(VIDEOS)):
-            
-        # if i <= 30:
-        #     continue
 
         print(f"{chunk} extracting starts\n")
         

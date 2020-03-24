@@ -28,18 +28,19 @@ def arg_parser():
     arg('--weight_path', type=str, default='../input/weights/resnext50_32x4d-7cdf4587.pth')
     arg('--train_df_path', type=str, default='../input/train_df.csv')
     arg('--valid_df_path', type=str, default='../input/valid_df.csv')
-    arg('--n_epochs', type=int, default=3)
+    arg('--n_epochs', type=int, default=5)
     arg('--model', type=str, default='resnet50')
     arg('--model_path', type=str)
     arg('--batch_size', type=int, default=32)
     arg('--num_workers', type=int, default=6)
-    arg('--optimizer', type=str, default='SGD')
-    arg('--scheduler', type=str, default='Cosine')
-    arg('--learning_rate', type=float, default=1e-2)
+    arg('--optimizer', type=str, default='Adam')
+    arg('--scheduler', type=str, default='Steplr')
+    arg('--learning_rate', type=float, default=1e-3)
     arg('--weight_decay', type=float, default=0.)
-    arg('--dropout', type=float, default=0.4)
+    arg('--dropout', type=float, default=0.3)
     arg('--seed', type=int, default=42)
     arg('--DEBUG', action='store_true', help='debug mode')
+    arg('--cpu', action='store_true', help='use cpu')
     args = parser.parse_args()
     return args
 
@@ -50,10 +51,12 @@ def main():
 
     seed_everything(args.seed)
 
-    if cuda.is_available():
+    if cuda.is_available() and not args.cpu:
         device = torch.device("cuda:0")
     else:
         device = torch.device("cpu")
+    
+    print(device)
 
     train_df = pd.read_csv(args.train_df_path)
     valid_df = pd.read_csv(args.valid_df_path)
