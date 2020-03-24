@@ -64,7 +64,7 @@ def make_df(args, fake_outlier_list):
         df.dropna(inplace=True)
         
         # removing outliers
-        df = df.loc[~(df['file_name'].isin(fake_outlier_list))]
+        # df = df.loc[~(df['file_name'].isin(fake_outlier_list))]
         
         df['original'] = df['original'].apply(lambda x: x.split('.')[0])
         df['file_name'] = df['file_name'].apply(lambda x: x.split('.')[0])
@@ -130,8 +130,6 @@ def main():
         print("saved train_df")
     elif args.mode == 'valid':
         valid_df = make_df(args, fake_outlier_list)
-
-        
         valid_df.to_csv(args.valid_df_path, index=False)
         print("saved valid_df")
 
