@@ -39,6 +39,7 @@ def arg_parser():
     arg('--weight_decay', type=float, default=0.)
     arg('--dropout', type=float, default=0.3)
     arg('--seed', type=int, default=42)
+    arg('--unfreeze', action='store_true', help='unfreeze layers after 1 epoch')
     arg('--DEBUG', action='store_true', help='debug mode')
     arg('--cpu', action='store_true', help='use cpu')
     args = parser.parse_args()

@@ -79,8 +79,9 @@ def validation(model, criterion, valid_loader, device):
     valid_preds = np.concatenate(valid_preds)
     valid_targets = np.concatenate(valid_targets)
     val_acc = accuracy_score(valid_targets, np.where(valid_preds >= 0.5, 1, 0))
+    val_mean = np.mean(valid_preds)
 
-    return epoch_val_loss, val_acc
+    return epoch_val_loss, val_acc, val_mean
 
 
 def train_model(args, trn_cfg):
@@ -101,7 +102,7 @@ def train_model(args, trn_cfg):
         print(f"epoch: {epoch+1} training starts")
         start_time = time.time()
 
-        if epoch == 1:
+        if epoch == 1 and args.unfreeze:
             print("model unfrozen")
             for param in model.parameters():
                 param.requires_grad = True 
@@ -113,7 +114,7 @@ def train_model(args, trn_cfg):
         valid_loader_list = [valid_loader, valid_loader1, valid_loader2]
         
         for i, valid_loader in enumerate(valid_loader_list):
-            val_loss, val_acc = validation(model, criterion, valid_loader, device)
+            val_loss, val_acc, val_mean = validation(model, criterion, valid_loader, device)
             print("{}: {:.4f}".format(i+1, val_loss))
             total_val_loss.append(val_loss)
             total_val_acc.append(val_acc)
@@ -130,8 +131,8 @@ def train_model(args, trn_cfg):
         elapsed = time.time() - start_time
         
         lr = [_['lr'] for _ in optimizer.param_groups]
-        print("Epoch {} - train_loss: {:.4f}  val_loss: {:.4f}  val_acc: {:.4f}  lr: {:.6f}  time: {:.0f}s".format(
-                epoch+1, train_loss, val_loss, val_acc, lr[0], elapsed))
+        print("Epoch {} - train_loss: {:.4f}  val_loss: {:.4f}  val_acc: {:.4f}  val_mean: {:.4f}  lr: {:.6f}  time: {:.0f}s".format(
+                epoch+1, train_loss, val_loss, val_acc, val_mean, lr[0], elapsed))
         
         # slack notice
         slack = Slacker(token)
