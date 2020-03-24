@@ -14,6 +14,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from credential import token
 from slacker import Slacker
+from datetime import datetime
 
 import warnings
 warnings.filterwarnings('ignore')
