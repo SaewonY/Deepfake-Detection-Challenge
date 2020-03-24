@@ -15,6 +15,7 @@ from tqdm import tqdm
 import seaborn as sns
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from utils import seed_everything
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -28,8 +29,8 @@ def arg_parser():
     arg('--outlier_df_path', type=str, default='../input/fake_outlier_list.txt')
     arg('--train_df_path', type=str, default='../input/train_df.csv')
     arg('--valid_df_path', type=str, default='../input/valid_df.csv')
-    arg('--train_images_path', type=str, default='../input/train_images_v2')
-    arg('--valid_images_path', type=str, default='../input/valid_images_v2')
+    arg('--train_images_path', type=str, default='train_images_v2')
+    arg('--valid_images_path', type=str, default='valid_images_v2')
     arg('--seed', type=int, default=42)
     args = parser.parse_args()
     return args
@@ -118,7 +119,7 @@ def main():
 
     args = arg_parser()
 
-    random.seed(args.seed)
+    seed_everything(args.seed)
 
     # load outliers
     with open(args.outlier_df_path, "rb") as fp:   
