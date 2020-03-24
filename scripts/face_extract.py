@@ -301,6 +301,9 @@ def main():
         SAVE_PATH = args.valid_images_path
         start, end = 40, 50
 
+    if args.start:
+        start = args.start
+    
     extract_faces(args, SAVE_PATH, start, end)
 
 
