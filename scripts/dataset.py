@@ -2,9 +2,6 @@ import cv2
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
-import albumentations
-from albumentations.augmentations.transforms import ShiftScaleRotate, HorizontalFlip, Normalize, RandomBrightnessContrast, \
-                                                    MotionBlur, Blur, GaussNoise, JpegCompression
 
 
 class DeepFake_Dataset(Dataset):
@@ -62,26 +59,6 @@ class LRCN_Dataset(Dataset):
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             fake_images.append(image)
         return (np.stack(real_images), torch.tensor(0.)), (np.stack(fake_images), torch.tensor(1.))
-        
-
-train_transforms = albumentations.Compose([
-                                          HorizontalFlip(p=0.3),
-                                        #   ShiftScaleRotate(p=0.3, scale_limit=0.25, border_mode=1, rotate_limit=25),
-                                        #   RandomBrightnessContrast(p=0.2, brightness_limit=0.25, contrast_limit=0.5),
-                                        #   MotionBlur(p=0.2),
-                                        #   GaussNoise(p=0.3),
-                                        #   JpegCompression(p=0.3, quality_lower=50),
-                                        #   Normalize()
-])
-valid_transforms = albumentations.Compose([
-                                          HorizontalFlip(p=0.2),
-                                          albumentations.OneOf([
-                                              JpegCompression(quality_lower=8, quality_upper=30, p=1.0),
-                                              # Downscale(scale_min=0.25, scale_max=0.75, p=1.0),
-                                              GaussNoise(p=1.0),
-                                          ], p=0.22),
-                                        #   Normalize()
-])
 
 
 def build_dataset(args, df, is_train=False, transforms=None):

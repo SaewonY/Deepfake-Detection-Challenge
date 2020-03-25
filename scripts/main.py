@@ -11,8 +11,11 @@ import torch
 from torch import nn, cuda
 import torch.nn.functional as F
 import torchvision
+import albumentations
+from albumentations.augmentations.transforms import ShiftScaleRotate, HorizontalFlip, Normalize, RandomBrightnessContrast, \
+                                                    MotionBlur, Blur, GaussNoise, JpegCompression
 from model import build_model
-from dataset import build_dataset, train_transforms, valid_transforms
+from dataset import build_dataset
 from utils import seed_everything
 from train import train_model
 from optimizer import build_optimizer, build_scheduler
@@ -91,6 +94,30 @@ def main():
         valid_df_sub = valid_df_sub[:1000]
         valid_df_sub1 = valid_df_sub1[:1000]
         valid_df_sub2 = valid_df_sub2[:1000]
+
+
+    if args.model_type == 'cnn':
+        train_transforms = albumentations.Compose([
+                                            HorizontalFlip(p=0.3),
+                                            #   ShiftScaleRotate(p=0.3, scale_limit=0.25, border_mode=1, rotate_limit=25),
+                                            #   RandomBrightnessContrast(p=0.2, brightness_limit=0.25, contrast_limit=0.5),
+                                            #   MotionBlur(p=0.2),
+                                              GaussNoise(p=0.3),
+                                              JpegCompression(p=0.3, quality_lower=50),
+                                              Normalize()
+        ])
+        valid_transforms = albumentations.Compose([
+                                                HorizontalFlip(p=0.2),
+                                                albumentations.OneOf([
+                                                    JpegCompression(quality_lower=8, quality_upper=30, p=1.0),
+                                                    GaussNoise(p=1.0),
+                                                ], p=0.22),
+                                                  Normalize()
+        ])
+    elif args.model_type == 'lrcn':
+        train_transforms = albumentations.Compose([Normalize()])
+        valid_transforms = albumentations.Compose([Normalize()])
+
 
     train_loader = build_dataset(args, train_df, transforms=train_transforms, is_train=True)
     batch_num = len(train_loader)
