@@ -104,7 +104,7 @@ def main():
                                             #   MotionBlur(p=0.2),
                                               GaussNoise(p=0.3),
                                               JpegCompression(p=0.3, quality_lower=50),
-                                              Normalize()
+                                            #   Normalize()
         ])
         valid_transforms = albumentations.Compose([
                                                 HorizontalFlip(p=0.2),
@@ -112,11 +112,11 @@ def main():
                                                     JpegCompression(quality_lower=8, quality_upper=30, p=1.0),
                                                     GaussNoise(p=1.0),
                                                 ], p=0.22),
-                                                  Normalize()
+                                                #   Normalize()
         ])
     elif args.model_type == 'lrcn':
-        train_transforms = albumentations.Compose([Normalize()])
-        valid_transforms = albumentations.Compose([Normalize()])
+        train_transforms = None
+        valid_transforms = None
 
 
     train_loader = build_dataset(args, train_df, transforms=train_transforms, is_train=True)
