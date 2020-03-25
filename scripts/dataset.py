@@ -1,4 +1,5 @@
 import cv2
+import random
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -49,15 +50,31 @@ class LRCN_Dataset(Dataset):
         real_paths = self.df['REAL'][index]
         fake_paths = self.df['FAKE'][index]
         real_images = []
+        random_prob = random.random()
+        if random_prob < 2/9: 
+            flip = True
+        else:
+            flip = False
         for real_path in real_paths:
             image = cv2.imread(real_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            if flip:
+                image = cv2.flip(image, 1)
             real_images.append(image)
+
         fake_images = []
+        random_prob = random.random()
+        if random_prob < 2/9: 
+            flip = True
+        else:
+            flip = False
         for fake_path in fake_paths:
             image = cv2.imread(fake_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            if flip:
+                image = cv2.flip(image, 1)
             fake_images.append(image)
+            
         return (np.stack(real_images), torch.tensor(0.)), (np.stack(fake_images), torch.tensor(1.))
 
 
