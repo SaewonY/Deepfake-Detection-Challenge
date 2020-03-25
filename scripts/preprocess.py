@@ -21,20 +21,6 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
-def arg_parser():
-    parser = argparse.ArgumentParser()
-    arg = parser.add_argument
-    arg('--PATH', type=str, default='../input')
-    arg('--mode', type=str, default='train')
-    arg('--outlier_df_path', type=str, default='../input/fake_outlier_list.txt')
-    arg('--train_df_path', type=str, default='../input/train_df.csv')
-    arg('--valid_df_path', type=str, default='../input/valid_df.csv')
-    arg('--train_images_path', type=str, default='train_images_v2')
-    arg('--valid_images_path', type=str, default='valid_images_v2')
-    arg('--seed', type=int, default=42)
-    args = parser.parse_args()
-    return args
-
 
 def make_df(args, fake_outlier_list):
 
@@ -64,8 +50,8 @@ def make_df(args, fake_outlier_list):
         df.drop(columns=['label'], inplace=True)
         df.dropna(inplace=True)
         
-        # removing outliers
-        # df = df.loc[~(df['file_name'].isin(fake_outlier_list))]
+        if args.preprocess:
+            df = df.loc[~(df['file_name'].isin(fake_outlier_list))]
         
         df['original'] = df['original'].apply(lambda x: x.split('.')[0])
         df['file_name'] = df['file_name'].apply(lambda x: x.split('.')[0])
@@ -115,6 +101,22 @@ def make_df(args, fake_outlier_list):
     return sampled_df
 
 
+def arg_parser():
+    parser = argparse.ArgumentParser()
+    arg = parser.add_argument
+    arg('--PATH', type=str, default='../input')
+    arg('--mode', type=str, default='train')
+    arg('--outlier_df_path', type=str, default='../input/fake_outlier_list.txt')
+    arg('--preprocess', action='store_true', help='remove outliers')
+    arg('--train_df_path', type=str, default='../input/train_df.csv')
+    arg('--valid_df_path', type=str, default='../input/valid_df.csv')
+    arg('--train_images_path', type=str, default='train_images_v3')
+    arg('--valid_images_path', type=str, default='valid_images_v3')
+    arg('--seed', type=int, default=42)
+    args = parser.parse_args()
+    return args
+
+
 def main():
 
     args = arg_parser()
@@ -127,11 +129,20 @@ def main():
 
     if args.mode == 'train':
         train_df = make_df(args, fake_outlier_list)
-        train_df.to_csv(args.train_df_path, index=False)
+
+        if args.preprocess:
+            train_df.to_csv('../input/preprocessed_train_df.csv', index=False)
+        else:
+            train_df.to_csv(args.train_df_path, index=False)
         print("saved train_df")
+        
     elif args.mode == 'valid':
         valid_df = make_df(args, fake_outlier_list)
-        valid_df.to_csv(args.valid_df_path, index=False)
+
+        if args.preprocess:
+            valid_df.to_csv('../input/preprocessed_valid_df.csv', index=False)
+        else:
+            valid_df.to_csv(args.valid_df_path, index=False)
         print("saved valid_df")
 
 

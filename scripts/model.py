@@ -164,6 +164,63 @@ class BaseCNN(nn.Module):
         return h
 
 
+class CNNEncoder(torch.nn.Module):
+  def __init__(self, base, in_f, out_f):
+    super(CNNEncoder, self).__init__()
+    self.base = base
+    self.h1 = Head(in_f, out_f)
+
+  def forward(self, x_3d):
+    
+    # 3_d.shape (batch size, frame size, img size, img size, channel)
+    
+    x_3d = x_3d.permute(0, 1, 4, 2, 3) # (batch size, frame size, img channel, img size, channel)
+    x_3d = x_3d.type(torch.float)
+
+    cnn_embed_seq = []
+    # frame 단위로 append
+    for i in range(x_3d.size(1)):
+        x = self.base(x_3d[:,i,:,:,:])
+        x = self.h1(x)
+        cnn_embed_seq.append(x) # x.shape (4, 300)
+
+    cnn_embed_seq = torch.stack(cnn_embed_seq, dim=0).transpose_(0, 1) # (batch size, frame size, cnn size)    
+    return cnn_embed_seq
+
+
+class RNNDecoder(nn.Module):
+  def __init__(self, in_f, out_f):
+    super(RNNDecoder, self).__init__()
+    self.LSTM = nn.LSTM(
+        input_size=in_f,
+        hidden_size=256,
+        num_layers=3,
+        batch_first=True
+    )
+
+    self.f1 = nn.Linear(256, 128)
+    self.f2 = nn.Linear(128, out_f)
+    self.r = nn.ReLU()
+    self.d = nn.Dropout(0.3)
+
+  def forward(self, x):
+    self.LSTM.flatten_parameters()
+    x, (hn,hc) = self.LSTM(x)
+    x = self.d(self.r(self.f1(x[:,-1,:])))
+    x = self.f2(x)
+    return x
+
+
+class LRCN(nn.Module):
+    def __init__(self, base_model, cnn_features, out_f):
+        super(LRCN, self).__init__()
+        self.cnn = CNNEncoder(base_model, 2048, cnn_features)
+        self.rnn = RNNDecoder(cnn_features, out_f)
+
+    def forward(self, x_3d):
+        return self.rnn(self.cnn(x_3d))
+
+
 def freeze_until(model, param_name):
     found_name = False
     for name, params in model.named_parameters():
@@ -174,6 +231,17 @@ def freeze_until(model, param_name):
 
 def build_model(args, device):
     weight_path = args.weight_path
+    
+    if args.model_type == 'lrcn':
+        assert args.batch_size <= 8
+        model = get_model("xception", pretrained=True)
+        model = nn.Sequential(*list(model.children())[:-1])
+        model[0].final_block.pool = nn.Sequential(nn.AdaptiveAvgPool2d((1,1)))
+        freeze_until(model, 'base.0.stage4.unit1.identity_conv.conv.weight')
+        lrcn_model = LRCN(model, 300, 1)
+        lrcn_model.to(device)
+        return lrcn_model
+
     if args.model == 'resnet50':
         model = BaseCNN('resnet50', pretrained='imagenet', dropout_ratio=args.dropout, GeM_pool=True)
         freeze_until(model, "base_model.layer3.0.conv1.weight")
@@ -185,15 +253,15 @@ def build_model(args, device):
         print("fine-tuning resnext")
 
     elif args.model == 'xception':
-        assert args.batch_size < 32
+        assert args.batch_size <= 16
         model = get_model("xception", pretrained=True)
         model = nn.Sequential(*list(model.children())[:-1])
         model[0].final_block.pool = nn.Sequential(nn.AdaptiveAvgPool2d((1,1)))
         model = FCN(model, 2048)
         freeze_until(model, 'base.0.stage4.unit1.identity_conv.conv.weight')
         print("fine-tuning xception")
-    else:
-        NotImplementedError
 
     model.to(device)
     return model
+
+

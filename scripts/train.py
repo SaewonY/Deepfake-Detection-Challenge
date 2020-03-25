@@ -16,27 +16,51 @@ def train_one_epoch(args, model, criterion, train_loader, optimizer, scheduler, 
     train_loss = 0.
     optimizer.zero_grad()
         
-    for batch_idx, ((real_img, real_label), (fake_img, fake_label)) in tqdm(enumerate(train_loader), total=len(train_loader)):
-    
-        if device:
-            batch_img = torch.cat((real_img, fake_img)).to(device, dtype=torch.float)
-            batch_label = torch.cat((real_label, fake_label)).reshape(-1, 1).to(device)
+    if args.model_type == 'cnn':
+        for batch_idx, ((real_img, real_label), (fake_img, fake_label)) in tqdm(enumerate(train_loader), total=len(train_loader)):
         
-        # label smoothing
-        # batch_label = torch.clamp(batch_label, min=0., max=0.999)
+            if device:
+                images = torch.cat((real_img, fake_img)).to(device, dtype=torch.float)
+                labels = torch.cat((real_label, fake_label)).reshape(-1, 1).to(device)
         
-        preds = model(batch_img)
-        loss = criterion(preds, batch_label)
-        
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-        
-        train_loss += loss.item()
-        
-        # scheduler update
-        if args.scheduler == 'Cosine':
-            scheduler.step()
+            # label smoothing
+            # labels = torch.clamp(labels, min=0., max=0.999)
+
+            preds = model(images)
+            loss = criterion(preds, labels)
+            # print(loss.item())
+
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            
+            train_loss += loss.item()
+            
+            # scheduler update
+            if args.scheduler == 'Cosine':
+                scheduler.step()
+
+
+    elif args.model_type == 'lrcn':
+        for batch_idx, ((real_img, real_label), (fake_img, fake_label)) in tqdm(enumerate(train_loader), total=len(train_loader)):
+
+            if device:
+                images = torch.cat((real_img, fake_img)).to(device)
+                labels = torch.cat((real_label, fake_label)).reshape(-1, 1).to(device)
+
+            preds = model(images)            
+            loss = criterion(preds, labels)
+
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            
+            train_loss += loss.item()
+            # print(loss.item())
+
+            # scheduler update
+            if args.scheduler == 'Cosine':
+                scheduler.step()
     
     epoch_train_loss = train_loss / (len(train_loader)*2)
         
@@ -53,7 +77,7 @@ def train_one_epoch(args, model, criterion, train_loader, optimizer, scheduler, 
     return epoch_train_loss
 
 
-def validation(model, criterion, valid_loader, device):
+def validation(args, model, criterion, valid_loader, device):
     
     model.eval()
     val_loss = 0.
@@ -61,18 +85,37 @@ def validation(model, criterion, valid_loader, device):
     valid_targets = []
     
     with torch.no_grad():
-        for batch_idx, ((real_img, real_label), (fake_img, fake_label)) in tqdm(enumerate(valid_loader), total=len(valid_loader)):
-                        
-            if device:
-                batch_img = torch.cat((real_img, fake_img)).to(device, dtype=torch.float)
-                batch_label = torch.cat((real_label, fake_label)).reshape(-1, 1).to(device)
-            valid_targets.append(batch_label.detach().cpu().numpy())
-        
-            outputs = model(batch_img)
-            loss = criterion(outputs, batch_label)
-            valid_preds.append(torch.sigmoid(outputs).detach().cpu().numpy())
+        if args.model_type == 'cnn':
+            for batch_idx, ((real_img, real_label), (fake_img, fake_label)) in tqdm(enumerate(valid_loader), total=len(valid_loader)):
+                            
+                if device:
+                    images = torch.cat((real_img, fake_img)).to(device, dtype=torch.float)
+                    labels = torch.cat((real_label, fake_label)).reshape(-1, 1).to(device)
+                valid_targets.append(labels.detach().cpu().numpy())
             
-            val_loss += loss.item()
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+                # print(loss.item())
+                valid_preds.append(torch.sigmoid(outputs).detach().cpu().numpy())
+                
+                val_loss += loss.item()
+
+        elif args.model_type == 'lrcn':
+            for batch_idx, ((real_img, real_label), (fake_img, fake_label)) in tqdm(enumerate(valid_loader), total=len(valid_loader)):
+
+                if device:
+                    images = torch.cat((real_img, fake_img)).to(device)
+                    labels = torch.cat((real_label, fake_label)).reshape(-1, 1).to(device)
+
+
+                valid_targets.append(labels.detach().cpu().numpy())
+                
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+                # print(loss.item())
+                valid_preds.append(torch.sigmoid(outputs).detach().cpu().numpy())
+                
+                val_loss += loss.item()
             
     epoch_val_loss = val_loss / (len(valid_loader)*2)
 
@@ -114,7 +157,7 @@ def train_model(args, trn_cfg):
         valid_loader_list = [valid_loader, valid_loader1, valid_loader2]
         
         for i, valid_loader in enumerate(valid_loader_list):
-            val_loss, val_acc, val_mean = validation(model, criterion, valid_loader, device)
+            val_loss, val_acc, val_mean = validation(args, model, criterion, valid_loader, device)
             print("{}: {:.4f}".format(i+1, val_loss))
             total_val_loss.append(val_loss)
             total_val_acc.append(val_acc)
@@ -131,13 +174,13 @@ def train_model(args, trn_cfg):
         elapsed = time.time() - start_time
         
         lr = [_['lr'] for _ in optimizer.param_groups]
-        print("Epoch {} - train_loss: {:.4f}  val_loss: {:.4f}  val_acc: {:.4f}  val_mean: {:.4f}  lr: {:.6f}  time: {:.0f}s".format(
+        print("Epoch {} - train_loss: {:.4f}  val_loss: {:.4f}  val_acc: {:.4f}  val_mean: {:.4f}  lr: {:.5f}  time: {:.0f}s".format(
                 epoch+1, train_loss, val_loss, val_acc, val_mean, lr[0], elapsed))
         
         # slack notice
         slack = Slacker(token)
-        slack.chat.post_message('#deepfake-train', 'Epoch {}- train_loss: {:.4f}  val_loss: {:.4f}  time {}'.format(
-                                                    epoch+1, train_loss, val_loss, datetime.now().replace(second=0, microsecond=0)
+        slack.chat.post_message('#deepfake-train', 'Epoch {}- train_loss: {:.4f}  val_loss: {:.4f}  val_acc: {:.4f}  val_mean: {:.4f} time {}'.format(
+                                                    epoch+1, train_loss, val_loss, val_acc, val_mean, datetime.now().replace(second=0, microsecond=0)
                                 ))
 
         # scheduler update
