@@ -41,6 +41,10 @@ def make_square_image(img):
     r = size - w
     return cv2.copyMakeBorder(img, t, b, l, r, cv2.BORDER_CONSTANT, value=0)
 
+def crop_image(frame,bbox):
+    left, right, top, bottom=bbox
+    return frame[top:bottom,left:right]
+
 def center_crop(img, crop_size):
     width, height = img.shape[:2]
     if height < crop_size or width < crop_size:
@@ -58,7 +62,7 @@ def get_center_crop_coords(height, width, crop_size):
     return x1, y1, x2, y2
 
 
-def get_mobilenet_face(args, image, preprocess=False):
+def get_mobilenet_face(args, image):
     global boxes,scores, num_detections
     (im_height, im_width) = image.shape[:-1]
     imgs = np.array([image])
@@ -93,11 +97,8 @@ def get_mobilenet_face(args, image, preprocess=False):
     return left, right, top, bottom
 
 
-def crop_image(frame,bbox):
-    left, right, top, bottom=bbox
-    return frame[top:bottom,left:right]
 
-def get_img(args, frame, frame_idx, save_path, file_name, frames_boxes_dict=None, is_fake=False, preprocess=False):
+def get_img(args, frame, frame_idx, save_path, file_name, frames_boxes_dict=None, is_fake=False):
     
     if is_fake:
         box = frames_boxes_dict[frame_idx]
@@ -115,7 +116,7 @@ def get_img(args, frame, frame_idx, save_path, file_name, frames_boxes_dict=None
         
     else:
         
-        box = get_mobilenet_face(args, frame, preprocess)
+        box = get_mobilenet_face(args, frame)
         cropped_face = crop_image(frame, box)
 
         # resized_face = cv2.resize(cropped_face, (args.resize, args.resize))
@@ -156,7 +157,7 @@ def detect_video(args, video, save_path, file_name, preprocess=False, is_fake=Fa
 
                     if preprocess and args.mode == 'valid':
                         width, height = frame.shape[:-1]
-                        frame = cv2.resize(frame, (width//4, height//4) , fx=0, fy=0, interpolation = cv2.INTER_CUBIC)
+                        frame = cv2.resize(frame, (height//4, width//4) , fx=0, fy=0, interpolation = cv2.INTER_CUBIC)
 
                     try:
                         get_img(args, frame, frame_idx, save_path, file_name, frames_boxes_dict, is_fake=True)
@@ -190,9 +191,9 @@ def detect_video(args, video, save_path, file_name, preprocess=False, is_fake=Fa
                     try:
                         if preprocess and args.mode == 'valid':
                             width, height = frame.shape[:-1]
-                            frame = cv2.resize(frame, (width//4, height//4) , fx=0, fy=0, interpolation = cv2.INTER_CUBIC)
-                            box = get_img(args, frame, frame_idx, save_path, file_name, is_fake=False, preprocess=True)
-                    
+                            frame = cv2.resize(frame, (height//4, width//4) , fx=0, fy=0, interpolation = cv2.INTER_CUBIC)
+                            box = get_img(args, frame, frame_idx, save_path, file_name, is_fake=False)
+                
                         else:
                             box = get_img(args, frame, frame_idx, save_path, file_name, is_fake=False)
                     except Exception as err:
@@ -263,7 +264,7 @@ def extract_faces(args, SAVE_PATH, start, end):
             for fake in fake_list:
                 fake_path = os.path.join(args.PATH, 'unzipped_videos', f'{chunk}', fake)
                 file_name = fake_path.split('/')[-1].split('.')[0]
-                detect_video(args, fake_path, save_path, file_name, preprocess, is_fake=True, frames_boxes_dict=frames_boxes_dict)
+                detect_video(args, fake_path, save_path, file_name, preprocess=preprocess, is_fake=True, frames_boxes_dict=frames_boxes_dict)
 
         # slack notice
         slack = Slacker(token)
