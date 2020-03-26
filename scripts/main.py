@@ -24,31 +24,6 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
-def arg_parser():
-    parser = argparse.ArgumentParser()
-    arg = parser.add_argument
-    arg('--PATH', type=str, default='../input')
-    arg('--weight_path', type=str, default='../input/weights/resnext50_32x4d-7cdf4587.pth')
-    arg('--n_epochs', type=int, default=4)
-    arg('--model', type=str, default='resnet50')
-    arg('--model_type', type=str, default='cnn')
-    arg('--model_path', type=str)
-    arg('--batch_size', type=int, default=32)
-    arg('--num_workers', type=int, default=6)
-    arg('--optimizer', type=str, default='Adam')
-    arg('--scheduler', type=str, default='Steplr')
-    arg('--learning_rate', type=float, default=1e-3)
-    arg('--weight_decay', type=float, default=0.)
-    arg('--dropout', type=float, default=0.3)
-    arg('--seed', type=int, default=42)
-    arg('--preprocess', action='store_true', help='remove outliers')
-    arg('--unfreeze', action='store_true', help='unfreeze layers after 1 epoch')
-    arg('--DEBUG', action='store_true', help='debug mode')
-    arg('--cpu', action='store_true', help='use cpu')
-    args = parser.parse_args()
-    return args
-
-
 def main():
 
     args = arg_parser()
@@ -65,11 +40,11 @@ def main():
     if args.model_type == 'cnn':
         if args.preprocess:
             train_df = pd.read_csv('../input/preprocessed_train_df.csv')
-            train_df = pd.read_csv('../input/preprocessed_valid_df.csv')
+            valid_df = pd.read_csv('../input/preprocessed_valid_df.csv')
         else:
             train_df = pd.read_csv('../input/train_df.csv')
             valid_df = pd.read_csv('../input/valid_df.csv')
-        sample_num = 40000
+        valid_sample_num = 40000
     
     elif args.model_type == 'lrcn':
         if args.preprocess:
@@ -78,15 +53,15 @@ def main():
         else:
             train_df = pd.read_pickle('../input/lrcn_train_df.pkl')
             valid_df = pd.read_pickle('../input/lrcn_valid_df.pkl')
-        sample_num = 15000
+        valid_sample_num = 15000
 
     print("number of train data {}".format(len(train_df)))
     print("number of valid data {}\n".format(len(valid_df)))
 
-
-    valid_df_sub = valid_df.sample(frac=1.0, random_state=42).reset_index(drop=True)[:sample_num]
-    valid_df_sub1 = valid_df.sample(frac=1.0, random_state=52).reset_index(drop=True)[:sample_num]
-    valid_df_sub2 = valid_df.sample(frac=1.0, random_state=62).reset_index(drop=True)[:sample_num]
+    train_df = train_df.sample(frac=args.train_sample_num, random_state=args.seed).reset_index(drop=True)
+    valid_df_sub = valid_df.sample(frac=1.0, random_state=42).reset_index(drop=True)[:valid_sample_num]
+    valid_df_sub1 = valid_df.sample(frac=1.0, random_state=52).reset_index(drop=True)[:valid_sample_num]
+    valid_df_sub2 = valid_df.sample(frac=1.0, random_state=62).reset_index(drop=True)[:valid_sample_num]
     del valid_df; gc.collect()
 
     if args.DEBUG:
@@ -128,7 +103,11 @@ def main():
 
     model = build_model(args, device)
 
-    if args.model == 'resnet50':
+    if args.model == 'mobilenet_v2':
+        save_path = os.path.join(args.PATH, 'weights', f'mobilenet_v2_best.pt')
+    elif args.model == 'resnet18':
+        save_path = os.path.join(args.PATH, 'weights', f'resnet18_best.pt')
+    elif args.model == 'resnet50':
         save_path = os.path.join(args.PATH, 'weights', f'resnet50_best.pt')
     elif args.model == 'resnext':
         save_path = os.path.join(args.PATH, 'weights', f'resnext_best.pt')
@@ -157,6 +136,32 @@ def main():
     }                                                                                                                                                
 
     train_model(args, train_cfg)
+
+
+def arg_parser():
+    parser = argparse.ArgumentParser()
+    arg = parser.add_argument
+    arg('--PATH', type=str, default='../input')
+    arg('--weight_path', type=str, default='../input/weights/resnext50_32x4d-7cdf4587.pth')
+    arg('--n_epochs', type=int, default=4)
+    arg('--model', type=str, default='resnet18')
+    arg('--model_type', type=str, default='cnn')
+    arg('--model_path', type=str)
+    arg('--batch_size', type=int, default=32)
+    arg('--num_workers', type=int, default=6)
+    arg('--optimizer', type=str, default='SGD')
+    arg('--scheduler', type=str, default='Cosine')
+    arg('--learning_rate', type=float, default=1e-3)
+    arg('--weight_decay', type=float, default=0.)
+    arg('--dropout', type=float, default=0.3)
+    arg('--seed', type=int, default=42)
+    arg('--train_sample_num', type=float, default=1.0, help='train sample ratio between 0 to 1.0')
+    arg('--preprocess', action='store_true', help='remove outliers')
+    arg('--unfreeze', action='store_true', help='unfreeze layers after 1 epoch')
+    arg('--DEBUG', action='store_true', help='debug mode')
+    arg('--cpu', action='store_true', help='use cpu')
+    args = parser.parse_args()
+    return args
 
 
 if __name__ == '__main__':
