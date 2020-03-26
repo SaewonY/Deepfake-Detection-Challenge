@@ -25,7 +25,7 @@ def build_optimizer(args, model):
 def build_scheduler(args, optimizer, batch_num):
 
     if args.scheduler == 'Cosine':
-        t_max = batch_num // 2
+        t_max = batch_num // 20
         eta_min = 1e-5
         scheduler = CosineAnnealingLR(optimizer, T_max=t_max, eta_min=eta_min)
     elif args.scheduler == 'Steplr':
