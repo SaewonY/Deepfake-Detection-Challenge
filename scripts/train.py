@@ -19,7 +19,7 @@ def train_one_epoch(args, model, criterion, train_loader, optimizer, scheduler, 
     for batch_idx, ((real_img, real_label), (fake_img, fake_label)) in tqdm(enumerate(train_loader), total=len(train_loader)):
 
         if device:
-            images = torch.cat((real_img, fake_img)).to(device)
+            images = torch.cat((real_img, fake_img)).type(torch.float).to(device)
             labels = torch.cat((real_label, fake_label)).reshape(-1, 1).to(device)
 
         preds = model(images)            
@@ -30,13 +30,14 @@ def train_one_epoch(args, model, criterion, train_loader, optimizer, scheduler, 
         optimizer.zero_grad()
         
         train_loss += loss.item()
-        print(loss.item())
+        if batch_idx % args.print_step == 0:
+            print(loss.item())
 
         # scheduler update
         if args.scheduler == 'Cosine':
             scheduler.step()
     
-    epoch_train_loss = train_loss / (len(train_loader)*2)
+    epoch_train_loss = train_loss / len(train_loader)
         
 #         if (batch_idx+1) % (len(train_loader)//3) == 0:
 #             val_loss, clipped_loss, clipped_loss1, val_acc = validation(model, criterion, valid_loader)
@@ -57,23 +58,24 @@ def validation(args, model, criterion, valid_loader, device):
     val_loss = 0.
     valid_preds = []
     valid_targets = []
-    
+
     with torch.no_grad():
         for batch_idx, ((real_img, real_label), (fake_img, fake_label)) in tqdm(enumerate(valid_loader), total=len(valid_loader)):
                         
             if device:
-                images = torch.cat((real_img, fake_img)).to(device, dtype=torch.float)
+                images = torch.cat((real_img, fake_img)).type(torch.float).to(device, dtype=torch.float)
                 labels = torch.cat((real_label, fake_label)).reshape(-1, 1).to(device)
             valid_targets.append(labels.detach().cpu().numpy())
         
             outputs = model(images)
             loss = criterion(outputs, labels)
-            print(loss.item())
+            if batch_idx % args.print_step == 0:
+                print(loss.item())
             valid_preds.append(torch.sigmoid(outputs).detach().cpu().numpy())
             
             val_loss += loss.item()
             
-    epoch_val_loss = val_loss / (len(valid_loader)*2)
+    epoch_val_loss = val_loss / len(valid_loader)
 
     valid_preds = np.concatenate(valid_preds)
     valid_targets = np.concatenate(valid_targets)
@@ -135,8 +137,8 @@ def train_model(args, trn_cfg):
         
         # slack notice
         slack = Slacker(token)
-        slack.chat.post_message('#deepfake-train', 'Epoch {}- train_loss: {:.4f}  val_loss: {:.4f}  val_acc: {:.4f}  val_mean: {:.4f} time {}'.format(
-                                                    epoch+1, train_loss, val_loss, val_acc, val_mean, datetime.now().replace(second=0, microsecond=0)
+        slack.chat.post_message('#deepfake-train', 'Model {} unfreeze {} preprocess {}  Epoch {}- train_loss: {:.4f}  val_loss: {:.4f}  val_acc: {:.4f}  val_mean: {:.4f} time {}'.format(
+                                                    args.model, args.unfreeze, args.preprocess, epoch+1, train_loss, val_loss, val_acc, val_mean, datetime.now().replace(second=0, microsecond=0)
                                 ))
 
         # scheduler update
