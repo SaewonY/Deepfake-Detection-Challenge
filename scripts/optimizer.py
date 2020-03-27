@@ -3,8 +3,7 @@ import torch
 from torch import optim
 from torch.optim import Adam, SGD
 from torch.optim.optimizer import Optimizer, required
-from torch.optim.lr_scheduler import _LRScheduler, LambdaLR, CosineAnnealingLR, StepLR
-
+from torch.optim.lr_scheduler import _LRScheduler, LambdaLR, CosineAnnealingWarmRestarts, StepLR
 
 def build_optimizer(args, model):
 
@@ -25,12 +24,13 @@ def build_optimizer(args, model):
 def build_scheduler(args, optimizer, batch_num):
 
     if args.scheduler == 'Cosine':
-        t_max = batch_num // 20
+        T_0 = batch_num // 10
         eta_min = 1e-5
-        scheduler = CosineAnnealingLR(optimizer, T_max=t_max, eta_min=eta_min)
+        scheduler = CosineAnnealingWarmRestarts(optimizer, T_0, T_mult=1, eta_min=eta_min)
+
     elif args.scheduler == 'Steplr':
         step_size = 1
-        gamma = 0.8
+        gamma = 0.9
         scheduler = StepLR(optimizer, step_size=step_size, gamma=gamma)
     elif args.scheduler == 'Lambda':
         scheduler = LambdaLR(optimizer=optimizer, lr_lambda=lambda epoch: 1 / (epoch+1))
